@@ -17,4 +17,12 @@
 
         // Input processors will be configured in keymap file
     };
+
+    trackball_scroll_listener: trackball_scroll_listener {
+        compatible = "zmk,input-listener";
+        device = <&trackball_split>;
+        status = "disabled";
+
+        // Scroll mode: converts XY movement to scroll wheel events
+    };
 };

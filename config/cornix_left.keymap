@@ -59,6 +59,18 @@
     >;
 };
 
+&trackball_scroll_listener {
+    // Scroll mode: converts trackball XY movement to vertical scroll wheel
+    // When SCROLL layer (layer 3) is active, this listener handles trackball input
+    // Y-axis inverted (value 4) to match normal scroll direction
+    // xy-to-scroll converts horizontal/vertical movement to scroll events
+
+    input-processors = <
+        &zip_xy_transform 4
+        &zip_xy_to_scroll
+    >;
+};
+
 &mt {
     flavor = "balanced";
     quick-tap-ms = <0>;
@@ -209,10 +221,10 @@
             //               | NONE | TRANS| TRANS| TRANS| TRANS | TRANS  |  | TRANS | TRANS| NONE | NONE | NONE | BOOT |
 
             bindings = <
-&none  &trans  &trans  &trans  &trans  &trans                  &trans    &trans    &mkp MB3  &trans    &trans    &none
-&none  &trans  &trans  &trans  &trans  &trans                  &mkp MB4  &mkp MB1  &trans    &mkp MB2  &mkp MB5  &none
-&none  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans    &trans    &trans    &trans    &trans    &none
-&none  &trans  &trans  &trans  &trans  &trans                  &trans    &trans    &trans    &trans    &trans    &none
+&none  &trans  &trans  &trans  &trans  &trans                  &trans  &trans    &trans  &trans    &trans      &none
+&none  &trans  &trans  &trans  &trans  &trans  &trans  &to 0   &trans  &mkp MB1  &mo 3   &mkp MB2  &mkp MB3    &none
+&none  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans    &trans  &trans    &trans      &none
+&none  &trans  &trans  &trans  &trans  &trans                  &trans  &trans    &trans  &trans    &bootloader &none
             >;
 
             sensor-bindings = <&WheelScroll SCRL_DOWN SCRL_UP &inc_dec_kp PG_UP PG_DN>;
