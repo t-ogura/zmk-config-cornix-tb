@@ -144,10 +144,10 @@
             //               | NONE | TRANS| TRANS| TRANS| TRANS | TRANS  |  | TRANS | TRANS| NONE | NONE | NONE | NONE |
 
             bindings = <
-&none     &kp F1        &kp F2    &kp F3     &kp F4         &kp F5                                           &kp F6        &kp F7  &kp F8     &kp F9             &kp F10        &none
-&none     &kp JP_COLON  &kp EXCL  &kp SLASH  &kp JP_LPAREN  &kp JP_LBRACKET                                  &trans        &trans  &none      &kp JP_UNDERSCORE  &mkp MB1       &kp UP
-&mkp MB2  &none         &none     &kp SEMI   &kp QMARK      &kp JP_YEN       &kp JP_RPAREN  &kp JP_RBRACKET  &kp JP_QUOTE  &trans  &kp JP_AT  &kp LEFT           &kp DOWN       &kp RIGHT
-&kp F11   &none         &none     &none      &trans         &trans                                           &trans        &trans  &trans     &trans             &mt RSHFT F12  &none
+&none  &kp F1        &kp F2    &kp F3     &kp F4         &kp F5                                           &kp F6             &kp F7    &kp F8    &kp F9     &kp F10        &none
+&none  &kp JP_COLON  &kp EXCL  &kp SLASH  &kp JP_LPAREN  &kp JP_LBRACKET  &trans            &trans        &kp JP_UNDERSCORE  &mkp MB1  &kp UP    &mkp MB2   &kp SEMICOLON  &none
+&none  &kp SEMI      &kp QMARK &kp JP_YEN &kp JP_RPAREN  &kp JP_RBRACKET  &kp JP_QUOTE      &trans        &kp JP_AT          &kp LEFT  &kp DOWN  &kp RIGHT  &kp F11        &none
+&none  &trans        &trans    &trans     &trans         &trans                                           &trans             &trans    &trans    &trans     &mt RSHFT F12  &none
             >;
 
             sensor-bindings = <&inc_dec_kp C_VOL_DN C_VOL_UP &inc_dec_kp PG_UP PG_DN>;
@@ -161,10 +161,10 @@
             //               | NONE |  ESC |  0   |  .   | TRANS | DEL    |  | TRANS | TRANS| NONE | NONE | NONE | NONE |
 
             bindings = <
-&none      &kp TAB          &kp N7  &kp N8           &kp N9   &kp MINUS                       &kp RBKT          &trans   &mkp MB3  &trans    &trans    &none
-&none      &kp JP_ASTERISK  &kp N4  &kp N5           &kp N6   &kp JP_PLUS                     &trans            &trans   &none     &kp RPAR  &mkp MB1  &kp UP
-&mkp MB2   &none            &none   &mt LSHFT SLASH  &kp N1   &kp N2       &kp N3  &kp EQUAL  &kp JP_BACKQUOTE  &kp DEL  &kp RBRC  &kp LEFT  &kp DOWN  &kp RIGHT
-&kp SLASH  &none            &none   &none            &kp ESC  &kp N0                          &kp DOT           &trans   &kp DEL   &trans    &trans    &none
+&none  &kp TAB               &kp N7  &kp N8  &kp N9   &kp MINUS                                &kp RBKT          &trans   &mkp MB3  &trans    &trans     &none
+&none  &kp JP_ASTERISK       &kp N4  &kp N5  &kp N6   &kp JP_PLUS   &trans        &trans       &kp RPAR          &mkp MB1 &kp UP    &mkp MB2  &kp COLON  &none
+&none  &mt LSHFT SLASH       &kp N1  &kp N2  &kp N3   &kp EQUAL     &kp JP_BACKQUOTE &kp DEL   &kp RBRC          &kp LEFT &kp DOWN  &kp RIGHT &kp SLASH  &none
+&none  &kp ESC               &kp N0  &kp DOT &trans   &trans                                   &kp DEL           &trans   &trans    &trans    &trans     &none
             >;
 
             sensor-bindings = <&WheelScroll SCRL_DOWN SCRL_UP &inc_dec_kp PG_UP PG_DN>;
@@ -178,10 +178,10 @@
             //               | NONE | TRANS| TRANS| TRANS| TRANS | TRANS  |  | TRANS | TRANS| NONE | NONE | NONE | NONE |
 
             bindings = <
-&none      &bt BT_SEL 0  &bt BT_SEL 1  &bt BT_SEL 2  &bt BT_SEL 3  &bt BT_SEL 4                  &kp LG(LC(LEFT))  &kp LG(TAB)  &mkp MB3  &trans    &kp LG(LC(RIGHT))  &none
-&none      &trans        &trans        &trans        &trans        &trans                        &trans            &trans       &none     &mkp MB4  &mkp MB1           &kp UP
-&mkp MB2   &none         &none         &trans        &trans        &trans        &trans  &trans  &trans            &trans       &trans    &trans    &kp LEFT           &kp DOWN
-&kp RIGHT  &none         &none         &none         &trans        &trans                        &trans            &trans       &trans    &trans    &trans             &none
+&none  &bt BT_SEL 0  &bt BT_SEL 1  &bt BT_SEL 2  &bt BT_SEL 3  &bt BT_SEL 4                  &kp LG(LC(LEFT))  &kp LG(TAB)  &mkp MB3  &trans    &kp LG(LC(RIGHT))  &none
+&none  &trans        &trans        &trans        &trans        &trans        &trans  &trans  &mkp MB4          &mkp MB1     &kp UP    &mkp MB2  &mkp MB5           &none
+&none  &trans        &trans        &trans        &trans        &trans        &trans  &trans  &trans            &kp LEFT     &kp DOWN  &kp RIGHT &trans             &none
+&none  &trans        &trans        &trans        &trans        &trans                        &trans            &trans       &trans    &trans    &trans             &none
             >;
 
             sensor-bindings = <&inc_dec_kp LC(KP_MINUS) LC(KP_PLUS) &inc_dec_kp PG_UP PG_DN>;
@@ -195,10 +195,10 @@
             //               | NONE | TRANS| TRANS| TRANS| TRANS | TRANS  |  | TRANS | TRANS| NONE | NONE | NONE | BOOT |
 
             bindings = <
-&none     &trans  &trans  &trans  &trans  &trans                  &trans  &trans  &trans  &trans    &trans      &none
-&none     &trans  &trans  &trans  &trans  &trans                  &trans  &to 0   &none   &mkp MB1  &mo SCROLL  &mkp MB2
-&mkp MB3  &none   &none   &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans    &trans      &trans
-&trans    &none   &none   &none   &trans  &trans                  &trans  &trans  &trans  &trans    &trans      &none
+&none  &trans  &trans  &trans  &trans  &trans                  &trans  &trans    &trans  &trans    &trans      &none
+&none  &trans  &trans  &trans  &trans  &trans  &trans  &to 0   &trans  &mkp MB1  &mo 3   &mkp MB2  &mkp MB3    &none
+&none  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans    &trans  &trans    &trans      &none
+&none  &trans  &trans  &trans  &trans  &trans                  &trans  &trans    &trans  &trans    &bootloader &none
             >;
 
             sensor-bindings = <&WheelScroll SCRL_DOWN SCRL_UP &inc_dec_kp PG_UP PG_DN>;
