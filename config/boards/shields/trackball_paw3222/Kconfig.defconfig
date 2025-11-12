@@ -1,0 +1,5 @@
+if SHIELD_TRACKBALL_PAW3222
+
+# Use default ZMK keyboard name
+
+endif # SHIELD_TRACKBALL_PAW3222

@@ -1,0 +1,2 @@
+config SHIELD_TRACKBALL_PAW3222
+    def_bool $(shields_list_contains,trackball_paw3222)
