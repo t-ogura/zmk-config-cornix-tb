@@ -15,7 +15,7 @@ Cornixとモジュール型トラックボールを連携させ、一つのキ�
  - **XIAO BLE nrf52840**: 
  - **上記配線用ケーブル**:
  - **トラックボールケース**: https://github.com/sekigon-gonnoc/torabo-tsuki-lp/blob/master/3d-models/STL/trackball-case-19mm-Body.stl
- - **トラックボールケース用マウント台**: 後日公開
+ - **トラックボールケース用マウント台**: https://github.com/t-ogura/zmk-config-cornix-tb/tree/master/3dmodel/cornix_trackball_case_mount.step
  - **19mmトラックボール**: PTFE球がおすすめ 
 
   ### 配線： PAW3222センサー ⇔ Seeeduino XIAO nRF52840
