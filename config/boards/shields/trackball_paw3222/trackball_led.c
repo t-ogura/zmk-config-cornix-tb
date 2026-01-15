@@ -27,16 +27,21 @@ static const struct gpio_dt_spec led_blue = GPIO_DT_SPEC_GET(LED_BLUE_NODE, gpio
 
 // LED state
 static struct k_work_delayable led_update_work;
+static struct k_work_delayable led_blink_work;
+static struct k_work_delayable status_check_work;
 static bool leds_initialized = false;
 static bool last_connected = false;
+static bool blink_state = false;
 
 // Battery thresholds
 #define BATTERY_HIGH 80
-#define BATTERY_LOW 20
-#define BATTERY_CRITICAL 10
+#define BATTERY_LOW 30     // Raised from 20% for earlier warning
+#define BATTERY_CRITICAL 15  // Raised from 10% for safety margin
 
 // Timing constants (in milliseconds)
-#define LED_DISPLAY_DURATION 1000       // Display status for 1 second
+#define LED_DISPLAY_DURATION 2000       // Display status for 2 seconds (was 1s)
+#define LED_BLINK_INTERVAL 500          // Blink interval when disconnected
+#define STATUS_CHECK_INTERVAL 30000     // Check connection status every 30 seconds
 
 // LED control functions
 static void led_set(const struct gpio_dt_spec *led, bool on) {
@@ -74,6 +79,30 @@ static void led_show_status(uint8_t battery_level, bool connected) {
     }
 }
 
+// Blink handler for disconnected state
+static void led_blink_handler(struct k_work *work) {
+    if (!leds_initialized) {
+        return;
+    }
+
+    bool connected = zmk_split_bt_peripheral_is_connected();
+
+    if (!connected) {
+        // Toggle blink state
+        blink_state = !blink_state;
+        led_all_off();
+        if (blink_state) {
+            led_set(&led_red, true);
+        }
+        // Schedule next blink
+        k_work_schedule(&led_blink_work, K_MSEC(LED_BLINK_INTERVAL));
+    } else {
+        // Connected - stop blinking
+        blink_state = false;
+        led_all_off();
+    }
+}
+
 static void led_update_handler(struct k_work *work) {
     if (!leds_initialized) {
         return;
@@ -88,19 +117,32 @@ static void led_update_handler(struct k_work *work) {
         LOG_INF("Connected! Showing status. Battery: %d%%", battery_level);
         last_connected = true;
 
-        // Show status for 1 second
+        // Stop any ongoing blink
+        k_work_cancel_delayable(&led_blink_work);
+        blink_state = false;
+
+        // Show status for duration
         led_show_status(battery_level, connected);
         k_work_schedule(&led_update_work, K_MSEC(LED_DISPLAY_DURATION));
         return;
     }
 
     if (!connected && last_connected) {
-        LOG_INF("Disconnected!");
+        LOG_INF("Disconnected! Starting blink.");
         last_connected = false;
+
+        // Start blinking to indicate disconnection
+        led_all_off();
+        led_set(&led_red, true);
+        blink_state = true;
+        k_work_schedule(&led_blink_work, K_MSEC(LED_BLINK_INTERVAL));
+        return;
     }
 
-    // Turn off LED after display duration
-    led_all_off();
+    // Turn off LED after display duration (only if connected)
+    if (connected) {
+        led_all_off();
+    }
 }
 
 static void led_show_status_temporary(void) {
@@ -113,9 +155,41 @@ static void led_show_status_temporary(void) {
 
     LOG_INF("Showing status: Battery: %d%%, Connected: %d", battery_level, connected);
 
-    // Show status for 1 second, then turn off
+    // Show status, then turn off after duration
     led_show_status(battery_level, connected);
     k_work_schedule(&led_update_work, K_MSEC(LED_DISPLAY_DURATION));
+}
+
+// Periodic status check handler
+static void status_check_handler(struct k_work *work) {
+    if (!leds_initialized) {
+        return;
+    }
+
+    bool connected = zmk_split_bt_peripheral_is_connected();
+    uint8_t battery_level = zmk_battery_state_of_charge();
+
+    // Detect connection state changes
+    if (connected != last_connected) {
+        if (connected) {
+            LOG_INF("Status check: Reconnected! Battery: %d%%", battery_level);
+            last_connected = true;
+            k_work_cancel_delayable(&led_blink_work);
+            blink_state = false;
+            led_show_status(battery_level, connected);
+            k_work_schedule(&led_update_work, K_MSEC(LED_DISPLAY_DURATION));
+        } else {
+            LOG_INF("Status check: Disconnected!");
+            last_connected = false;
+            led_all_off();
+            led_set(&led_red, true);
+            blink_state = true;
+            k_work_schedule(&led_blink_work, K_MSEC(LED_BLINK_INTERVAL));
+        }
+    }
+
+    // Schedule next check
+    k_work_schedule(&status_check_work, K_MSEC(STATUS_CHECK_INTERVAL));
 }
 
 static int led_listener_battery_changed(const zmk_event_t *eh) {
@@ -161,13 +235,18 @@ static int trackball_led_init(void) {
     // Turn off all LEDs initially
     led_all_off();
 
-    // Initialize work item
+    // Initialize work items
     k_work_init_delayable(&led_update_work, led_update_handler);
+    k_work_init_delayable(&led_blink_work, led_blink_handler);
+    k_work_init_delayable(&status_check_work, status_check_handler);
 
     leds_initialized = true;
 
-    // Show initial status on boot for 1 second
+    // Show initial status on boot
     led_show_status_temporary();
+
+    // Start periodic status check
+    k_work_schedule(&status_check_work, K_MSEC(STATUS_CHECK_INTERVAL));
 
     LOG_INF("Trackball LED indicators initialized successfully");
 

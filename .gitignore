@@ -32,3 +32,4 @@ __pycache__/
 *.tmp
 *.bak
 CLAUDE.md
+PROSPECTOR_*.md
