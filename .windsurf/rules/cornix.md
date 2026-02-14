@@ -1,5 +1,5 @@
 ---
-trigger: Always On
+trigger: always_on
 ---
 
 1. 作業の最優先事項は「仕様.md」に基づいて進めること。
