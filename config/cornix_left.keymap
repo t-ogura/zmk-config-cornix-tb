@@ -157,6 +157,7 @@
         compatible = "zmk,keymap";
 
         default_layer {
+            display-name = "Base";
             // -----------------------------------------------------------------------------------------
             // | NONE |  Q  |  W  |  E  |  R  |  T  |                   |  Y  |  U   |  I  |  O  |  P  | NONE |
             // | NONE |  A  |  S  |  D  |  F  |  G  |  MUTE  |  |  UP  | TB  |  J   |  K  |  L  |  -  | NONE |
@@ -174,6 +175,7 @@
         };
 
         function_layer {
+            display-name = "Func";
             // -----------------------------------------------------------------------------------------
             // | NONE |  F1  |  F2  |  F3  |  F4  |  F5  |                   |  F6  |  F7  |  F8  |  F9  | F10 | NONE |
             // | NONE |  :   |  !   |  /   |  (   |  [   |                   |  _   | MB1  |  UP  | MB2  |  ;  | NONE |
@@ -191,6 +193,7 @@
         };
 
         num_layer {
+            display-name = "Num";
             // -----------------------------------------------------------------------------------------
             // | NONE | TAB  |  7   |  8   |  9   |  -   |                   |  ]   | TRANS| MB3  | TRANS| TRANS| NONE |
             // | NONE |  *   |  4   |  5   |  6   |  +   |                   |  )   | MB1  |  UP  | MB2  |  :   | NONE |
@@ -208,6 +211,7 @@
         };
 
         scroll_layer {
+            display-name = "Setting";
             // -----------------------------------------------------------------------------------------
             // | NONE | BT0  | BT1  | BT2  | BT3  | BT4  |                   | ⌘⌃← | ⌘TAB | MB3  | TRANS| ⌘⌃→ | NONE |
             // | NONE | TRANS| TRANS| TRANS| TRANS| TRANS|                   | MB4  | MB1  |  UP  | MB2  | MB5  | NONE |
@@ -225,6 +229,7 @@
         };
 
         mouse_layer {
+            display-name = "Mouse";
             // -----------------------------------------------------------------------------------------
             // | NONE | TRANS| TRANS| TRANS| TRANS| TRANS|                   | TRANS| TRANS| MB3  | TRANS| TRANS| NONE |
             // | NONE | TRANS| TRANS| TRANS| TRANS| TRANS|        |  |  TO0  | TRANS| MB1  | UP   | MB2  | TRANS| NONE |
