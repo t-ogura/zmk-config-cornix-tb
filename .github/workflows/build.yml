@@ -38,11 +38,12 @@ jobs:
       - name: Checkout config
         uses: actions/checkout@v4
         with:
-          path: config
+          # Avoid name clash with the inner config/ dir that holds west.yml.
+          path: zmk-config
 
       - name: Initialize ZMK workspace
         working-directory: ${{ github.workspace }}
-        run: west init -l config
+        run: west init -l zmk-config/config
 
       - name: Update ZMK workspace
         working-directory: ${{ github.workspace }}
@@ -53,7 +54,7 @@ jobs:
         run: |
           set -e
           shopt -s nullglob
-          for p in config/patches/zmk/*.patch; do
+          for p in zmk-config/patches/zmk/*.patch; do
             echo "Applying $(basename "$p")"
             git -C zmk apply "$(realpath "$p")"
           done
@@ -70,7 +71,7 @@ jobs:
           SNIPPET: ${{ matrix.snippet }}
         run: |
           ARGS="-s zmk/app -b $BOARD -d build"
-          BUILD_ARGS="-DZMK_CONFIG=$(pwd)/config/config"
+          BUILD_ARGS="-DZMK_CONFIG=$(pwd)/zmk-config/config"
           if [ -n "$SHIELD" ]; then BUILD_ARGS="$BUILD_ARGS -DSHIELD=$SHIELD"; fi
           if [ -n "$SNIPPET" ]; then ARGS="$ARGS -S $SNIPPET"; fi
           west build $ARGS -- $BUILD_ARGS
