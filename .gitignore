@@ -3,14 +3,16 @@ build/
 firmware/
 *.uf2
 
-# West workspace
-.west/
-zephyr/
-zmk/
-modules/
-tools/
-bootloader/
-zmk-*/
+# West workspace (anchored to repo root so subdirs like patches/zmk/ are not
+# accidentally ignored)
+/.west/
+/zephyr/
+/zmk/
+/modules/
+/tools/
+/bootloader/
+/optional/
+/zmk-*/
 
 # Python virtual environments
 venv/

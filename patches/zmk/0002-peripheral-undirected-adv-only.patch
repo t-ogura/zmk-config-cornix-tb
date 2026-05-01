@@ -1,0 +1,40 @@
+diff --git a/app/src/split/bluetooth/peripheral.c b/app/src/split/bluetooth/peripheral.c
+index 0d3ad2de..b9ccd6d6 100644
+--- a/app/src/split/bluetooth/peripheral.c
++++ b/app/src/split/bluetooth/peripheral.c
+@@ -57,19 +57,26 @@ static void each_bond(const struct bt_bond_info *info, void *user_data) {
+ }
+ 
+ static int start_advertising(bool low_duty) {
++    ARG_UNUSED(low_duty);
++
+     bt_addr_le_t central_addr = bt_addr_le_none;
+ 
+     bt_foreach_bond(BT_ID_DEFAULT, each_bond, &central_addr);
+ 
+-    if (bt_addr_le_cmp(&central_addr, BT_ADDR_LE_NONE) != 0) {
+-        is_bonded = true;
+-        struct bt_le_adv_param adv_param = low_duty ? *BT_LE_ADV_CONN_DIR_LOW_DUTY(&central_addr)
+-                                                    : *BT_LE_ADV_CONN_DIR(&central_addr);
+-        return bt_le_adv_start(&adv_param, NULL, 0, NULL, 0);
+-    } else {
+-        is_bonded = false;
+-        return bt_le_adv_start(BT_LE_ADV_CONN_FAST_2, zmk_ble_ad, ARRAY_SIZE(zmk_ble_ad), NULL, 0);
+-    }
++    is_bonded = bt_addr_le_cmp(&central_addr, BT_ADDR_LE_NONE) != 0;
++
++    /*
++     * Cornix TB local patch: always use undirected connectable advertising,
++     * even when bonded. Skipping high-duty directed adv avoids the BLE-spec
++     * 1.28s timeout that races with the central's serialised scan/connect
++     * pipeline; with two peripherals (right half + trackball) directed adv
++     * loses the race whenever the central is busy connecting to the other
++     * peripheral, and the loser falls back to slow low-duty adv until the
++     * next 'recycled' callback. Undirected adv keeps a steady ~100-150ms
++     * interval indefinitely; the central finds us by ZMK split service UUID
++     * filtering, so functionality is identical aside from a tiny power cost.
++     */
++    return bt_le_adv_start(BT_LE_ADV_CONN_FAST_2, zmk_ble_ad, ARRAY_SIZE(zmk_ble_ad), NULL, 0);
+ };
+ 
+ static bool low_duty_advertising = false;

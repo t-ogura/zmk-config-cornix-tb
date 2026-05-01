@@ -1,0 +1,12 @@
+diff --git a/app/boards/shields/nice_view/Kconfig.defconfig b/app/boards/shields/nice_view/Kconfig.defconfig
+index 0b2b7be3..63a553b1 100644
+--- a/app/boards/shields/nice_view/Kconfig.defconfig
++++ b/app/boards/shields/nice_view/Kconfig.defconfig
+@@ -4,6 +4,7 @@
+ if SHIELD_NICE_VIEW
+ 
+ config LS0XX_VCOM_THREAD_PRIO
++    int
+     default 11
+ 
+ config LV_Z_VDB_SIZE

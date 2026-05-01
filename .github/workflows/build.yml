@@ -1,7 +1,88 @@
 name: Build
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
 
 jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    name: Fetch Build Matrix
+    outputs:
+      build-matrix: ${{ steps.set-matrix.outputs.build-matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Build matrix from build.yaml
+        id: set-matrix
+        run: |
+          MATRIX=$(yq -o=json eval '{"include": .include}' config/build.yaml | jq -c .)
+          echo "build-matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
+
   build:
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
+    runs-on: ubuntu-latest
+    container: zmkfirmware/zmk-build-arm:stable
+    needs: matrix
+    name: ${{ matrix.artifact-name }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.build-matrix) }}
+    steps:
+      - name: Checkout config
+        uses: actions/checkout@v4
+        with:
+          path: config
+
+      - name: Initialize ZMK workspace
+        working-directory: ${{ github.workspace }}
+        run: west init -l config
+
+      - name: Update ZMK workspace
+        working-directory: ${{ github.workspace }}
+        run: west update --narrow -o=--depth=1
+
+      - name: Apply local ZMK patches
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -e
+          shopt -s nullglob
+          for p in config/patches/zmk/*.patch; do
+            echo "Applying $(basename "$p")"
+            git -C zmk apply "$(realpath "$p")"
+          done
+
+      - name: West Zephyr export
+        working-directory: ${{ github.workspace }}
+        run: west zephyr-export
+
+      - name: Build firmware
+        working-directory: ${{ github.workspace }}
+        env:
+          BOARD: ${{ matrix.board }}
+          SHIELD: ${{ matrix.shield }}
+          SNIPPET: ${{ matrix.snippet }}
+        run: |
+          ARGS="-s zmk/app -b $BOARD -d build"
+          BUILD_ARGS="-DZMK_CONFIG=$(pwd)/config/config"
+          if [ -n "$SHIELD" ]; then BUILD_ARGS="$BUILD_ARGS -DSHIELD=$SHIELD"; fi
+          if [ -n "$SNIPPET" ]; then ARGS="$ARGS -S $SNIPPET"; fi
+          west build $ARGS -- $BUILD_ARGS
+
+      - name: Stage artifact
+        run: |
+          mkdir -p artifacts
+          cp build/zephyr/zmk.uf2 artifacts/${{ matrix.artifact-name }}.uf2
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: artifacts/${{ matrix.artifact-name }}.uf2
+          if-no-files-found: error

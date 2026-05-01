@@ -11,7 +11,9 @@ include:
     artifact-name: cornix_right
 
   # Trackball Peripheral (Xiao nRF52840 + PAW3222)
-  - board: seeeduino_xiao_ble
+  # HW model v2: board=xiao_ble, variant=zmk (xiao_ble_zmk_defconfig provides
+  # CONFIG_ZMK_BLE/USB which the stock xiao_ble defconfig does not).
+  - board: xiao_ble//zmk
     shield: trackball_paw3222
     artifact-name: trackball_peripheral
 
@@ -24,6 +26,6 @@ include:
     shield: settings_reset
     artifact-name: reset_cornix
 
-  - board: seeeduino_xiao_ble
+  - board: xiao_ble//zmk
     shield: settings_reset
     artifact-name: reset_xiao

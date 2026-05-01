@@ -12,6 +12,8 @@ manifest:
       url-base: https://github.com/caksoylar
     - name: prospector
       url-base: https://github.com/t-ogura
+    - name: t-ogura
+      url-base: https://github.com/t-ogura
   projects:
     - name: zmk
       remote: zmkfirmware
@@ -26,13 +28,13 @@ manifest:
     - name: zmk-helpers
       remote: urob
       revision: main
-    # Temporarily disabled for Zephyr 4.x compatibility
-    # - name: zmk-rgbled-widget
-    #   remote: hitsmaxft
-    #   revision: main
+    # Cornix-specific Zephyr 4.x fork (forked from hitsmaxft/zmk-rgbled-widget)
+    - name: zmk-rgbled-widget
+      remote: t-ogura
+      revision: cornix-zephyr4
     - name: prospector-zmk-module
       remote: prospector
-      revision: feature/v2.1.0-touch-mode
+      revision: release/v2.2.0
       path: modules/prospector-zmk-module
   self:
     path: config
