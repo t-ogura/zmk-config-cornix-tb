@@ -45,41 +45,45 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: west init -l zmk-config/config
 
+      # west init creates .west/ at zmk-config/.west, so the workspace topdir
+      # is zmk-config/. All subsequent west commands run from inside it.
+
       - name: Update ZMK workspace
-        working-directory: ${{ github.workspace }}
+        working-directory: ${{ github.workspace }}/zmk-config
         run: west update --narrow -o=--depth=1
 
       - name: Apply local ZMK patches
-        working-directory: ${{ github.workspace }}
+        working-directory: ${{ github.workspace }}/zmk-config
         run: |
           set -e
           shopt -s nullglob
-          for p in zmk-config/patches/zmk/*.patch; do
+          for p in patches/zmk/*.patch; do
             echo "Applying $(basename "$p")"
             git -C zmk apply "$(realpath "$p")"
           done
 
       - name: West Zephyr export
-        working-directory: ${{ github.workspace }}
+        working-directory: ${{ github.workspace }}/zmk-config
         run: west zephyr-export
 
       - name: Build firmware
-        working-directory: ${{ github.workspace }}
+        working-directory: ${{ github.workspace }}/zmk-config
         env:
           BOARD: ${{ matrix.board }}
           SHIELD: ${{ matrix.shield }}
           SNIPPET: ${{ matrix.snippet }}
         run: |
           ARGS="-s zmk/app -b $BOARD -d build"
-          BUILD_ARGS="-DZMK_CONFIG=$(pwd)/zmk-config/config"
+          BUILD_ARGS="-DZMK_CONFIG=$(pwd)/config"
           if [ -n "$SHIELD" ]; then BUILD_ARGS="$BUILD_ARGS -DSHIELD=$SHIELD"; fi
           if [ -n "$SNIPPET" ]; then ARGS="$ARGS -S $SNIPPET"; fi
           west build $ARGS -- $BUILD_ARGS
 
       - name: Stage artifact
+        working-directory: ${{ github.workspace }}/zmk-config
         run: |
-          mkdir -p artifacts
-          cp build/zephyr/zmk.uf2 artifacts/${{ matrix.artifact-name }}.uf2
+          mkdir -p ../artifacts
+          cp build/zephyr/zmk.uf2 ../artifacts/${{ matrix.artifact-name }}.uf2
 
       - name: Upload firmware
         uses: actions/upload-artifact@v4
