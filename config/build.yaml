@@ -1,14 +1,14 @@
 ---
 include:
-  # Cornix Left (Central) - with trackball listener and LED indicator
+  # Cornix Left (PERIPHERAL on this branch) - with LED indicator
   - board: cornix_left
     shield: cornix_indicator
-    artifact-name: cornix_left_central
+    artifact-name: cornix_left_peripheral
 
-  # Cornix Right (Peripheral) - with LED indicator
+  # Cornix Right (CENTRAL on this branch) - with trackball listener and LED indicator
   - board: cornix_right
     shield: cornix_indicator
-    artifact-name: cornix_right
+    artifact-name: cornix_right_central
 
   # Trackball Peripheral (Xiao nRF52840 + PAW3222)
   # HW model v2: board=xiao_ble, variant=zmk (xiao_ble_zmk_defconfig provides
@@ -24,7 +24,11 @@ include:
   # Flashing the wrong reset firmware can corrupt the bootloader!
   - board: cornix_left
     shield: settings_reset
-    artifact-name: reset_cornix
+    artifact-name: reset_cornix_left
+
+  - board: cornix_right
+    shield: settings_reset
+    artifact-name: reset_cornix_right
 
   - board: xiao_ble//zmk
     shield: settings_reset

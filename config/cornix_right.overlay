@@ -1,0 +1,42 @@
+// Right-as-central overlay: trackball input listener now lives on right
+// (central side) because the peripheral side (here = left) cannot receive
+// split input from the trackball. Mirrors what cornix_left.overlay does on
+// the original left-central build.
+#include <dt-bindings/zmk/input_transform.h>
+
+&zephyr_udc0 {
+    cdc_acm_uart0: cdc_acm_uart0 {
+        compatible = "zephyr,cdc-acm-uart";
+    };
+};
+
+/{
+    split_inputs {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        trackball_split: trackball_split@0 {
+            compatible = "zmk,input-split";
+            reg = <0>;
+        };
+    };
+
+    trackball_listener: trackball_listener {
+        compatible = "zmk,input-listener";
+        device = <&trackball_split>;
+        status = "okay";
+
+        // Input processors will be configured in keymap file
+
+        scroller {
+            layers = <3>;
+            input-processors = <&zip_xy_transform INPUT_TRANSFORM_Y_INVERT>,
+                               <&zip_xy_to_scroll_mapper>,
+                               <&zip_scroll_scaler 1 12>;
+        };
+    };
+
+    chosen {
+        zephyr,console = &cdc_acm_uart0;
+    };
+};

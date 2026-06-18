@@ -1,0 +1,7 @@
+/*
+ * Right-as-central build: re-uses the same keymap as cornix_left.keymap.
+ * The keymap binds behaviors to unified positions, which are independent
+ * of which physical side runs the central. Keep them in one file by
+ * including the existing keymap.
+ */
+#include "cornix_left.keymap"

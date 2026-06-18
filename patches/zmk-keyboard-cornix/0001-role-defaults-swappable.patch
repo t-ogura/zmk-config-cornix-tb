@@ -1,0 +1,36 @@
+diff --git a/boards/jzf/cornix/Kconfig.defconfig b/boards/jzf/cornix/Kconfig.defconfig
+index 5082135..9e8e12e 100644
+--- a/boards/jzf/cornix/Kconfig.defconfig
++++ b/boards/jzf/cornix/Kconfig.defconfig
+@@ -18,17 +18,20 @@ config USB_DEVICE_STACK
+     default y
+ 
+ endif # USB
+-config ZMK_SPLIT_ROLE_CENTRAL
+-    default y
+-
+-config ZMK_SPLIT_BLE_ROLE_CENTRAL
+-	default y
+-
+-config ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_FETCHING
+-	default y
+-
+-config ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_PROXY
+-	default y
++# Role defaults removed so the application config can place the central
++# on either side (workspace experiment: feature/right-as-central). The
++# default for both BOARD_CORNIX_LEFT and BOARD_CORNIX_RIGHT is now n;
++# the application's <board>.conf sets ZMK_SPLIT_ROLE_CENTRAL=y exactly
++# where the central should live.
++# Original lines:
++#   config ZMK_SPLIT_ROLE_CENTRAL
++#       default y
++#   config ZMK_SPLIT_BLE_ROLE_CENTRAL
++#       default y
++#   config ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_FETCHING
++#       default y
++#   config ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_PROXY
++#       default y
+ 
+ endif # BOARD_CORNIX_LEFT
+ 

@@ -1,39 +1,32 @@
-// Split input configuration (central side - receives trackball data from peripheral)
+// Left as peripheral (right-as-central swap branch):
+// - No central-side trackball input-split/listener wiring (the central does that)
+// - No USB CDC ACM console (USB stack disabled on peripheral)
+//
+// We still declare `trackball_listener` as an inert stub because the shared
+// keymap references `&trackball_listener { input-processors = ... }`. With
+// CONFIG_ZMK_INPUT_SPLIT=n on the peripheral, no driver matches this node
+// and it costs nothing at runtime; the override is silently ignored.
 #include <dt-bindings/zmk/input_transform.h>
-
-&zephyr_udc0 {
-    cdc_acm_uart0: cdc_acm_uart0 {
-        compatible = "zephyr,cdc-acm-uart";
-    };
-};
 
 /{
     split_inputs {
         #address-cells = <1>;
         #size-cells = <0>;
 
+        // Disabled on this peripheral: no physical input device here, and the
+        // peripheral-side input-split driver enforces an `input` property
+        // (BUILD_ASSERT in zmk/app/src/pointing/input_split.c). Status
+        // "disabled" suppresses instance generation so the assert never fires.
         trackball_split: trackball_split@0 {
             compatible = "zmk,input-split";
             reg = <0>;
+            status = "disabled";
         };
     };
 
     trackball_listener: trackball_listener {
         compatible = "zmk,input-listener";
         device = <&trackball_split>;
-        status = "okay";
-
-        // Input processors will be configured in keymap file
-
-        scroller {
-            layers = <3>;
-            input-processors = <&zip_xy_transform INPUT_TRANSFORM_Y_INVERT>,
-                               <&zip_xy_to_scroll_mapper>,
-                               <&zip_scroll_scaler 1 12>;
-        };
-    };
-
-    chosen {
-        zephyr,console = &cdc_acm_uart0;
+        status = "disabled";
     };
 };
