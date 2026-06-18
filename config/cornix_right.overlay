@@ -26,21 +26,13 @@
         device = <&trackball_split>;
         status = "okay";
 
-        // Input processors are configured in cornix_left.keymap (which the
-        // cornix_right.keymap re-includes for the right-as-central build).
-        // The scroller child is gated by CONFIG_ZMK_POINTING because it
-        // references &zip_xy_transform et al, which only exist when the
-        // pointing subsystem is compiled in -- otherwise the settings_reset
-        // shield (which disables BLE / split / pointing) fails to parse the
-        // overlay.
-#if defined(CONFIG_ZMK_POINTING)
-        scroller {
-            layers = <3>;
-            input-processors = <&zip_xy_transform INPUT_TRANSFORM_Y_INVERT>,
-                               <&zip_xy_to_scroll_mapper>,
-                               <&zip_scroll_scaler 1 12>;
-        };
-#endif
+        // Input processors (auto-mouse layer trigger + scroller child) are
+        // configured in cornix_left.keymap, which cornix_right.keymap
+        // re-includes. They cannot live in this overlay because Zephyr does
+        // not feed autoconf.h to the overlay CPP, so a guard like
+        // `#if defined(CONFIG_ZMK_POINTING)` would always strip them out.
+        // The keymap path also keeps settings_reset shield builds clean,
+        // since settings_reset does not load the application keymap.
     };
 
     chosen {

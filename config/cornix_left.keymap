@@ -12,6 +12,7 @@
 #include <dt-bindings/zmk/bt.h>
 #include <dt-bindings/zmk/keys.h>
 #include <dt-bindings/zmk/pointing.h>
+#include <dt-bindings/zmk/input_transform.h>
 
 #define DEFAULT 0
 #define FUNCTION 1
@@ -59,10 +60,22 @@
         &zip_xy_scaler 2 3
         &zip_temp_layer MOUSE 600
     >;
-};
 
-// Scroll mode: layer 3 (SCROLL) activates scroller via overlay configuration
-// Scroller configuration is in config/boards/cornix_left.overlay
+    // Scroll mode: trackball XY -> scroll wheel when layer 3 (SCROLL) is active.
+    // Lives in the keymap (not in cornix_*.overlay) so that the settings_reset
+    // shield build, which disables ZMK_POINTING and does not load the keymap,
+    // is not exposed to the &zip_xy_transform / &zip_xy_to_scroll_mapper
+    // node-label references that would otherwise fail to resolve. Putting it
+    // in the overlay with `#if defined(CONFIG_ZMK_POINTING)` does not work
+    // because Zephyr does not inject autoconf.h into overlay CPP, so the
+    // guard is always false and the block gets silently stripped.
+    scroller {
+        layers = <3>;
+        input-processors = <&zip_xy_transform INPUT_TRANSFORM_Y_INVERT>,
+                           <&zip_xy_to_scroll_mapper>,
+                           <&zip_scroll_scaler 1 12>;
+    };
+};
 
 &mt {
     flavor = "balanced";
