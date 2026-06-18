@@ -34,7 +34,7 @@ manifest:
       revision: cornix-zephyr4
     - name: prospector-zmk-module
       remote: prospector
-      revision: release/v2.2.0
+      revision: release/v2.2.1
       path: modules/prospector-zmk-module
   self:
     path: config
