@@ -1,0 +1,6 @@
+if SHIELD_TRACKBALL_CENTRAL
+
+config ZMK_KEYBOARD_NAME
+    default "Cornix TB"
+
+endif # SHIELD_TRACKBALL_CENTRAL

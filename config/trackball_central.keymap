@@ -1,0 +1,8 @@
+/*
+ * Xiao-as-central build: the central owns the keymap, so the trackball
+ * central re-uses the shared Cornix keymap. Key positions arrive from the
+ * two Cornix peripherals; &trackball_listener resolves to the LOCAL
+ * PAW3222 listener defined in the trackball_central shield overlay, so the
+ * same input-processor bindings (auto-mouse layer, scroller) apply.
+ */
+#include "cornix_left.keymap"

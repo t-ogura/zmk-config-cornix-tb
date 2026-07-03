@@ -1,26 +1,24 @@
 ---
 include:
-  # Cornix Left (PERIPHERAL on this branch) - with LED indicator
+  # Trackball (CENTRAL on this branch) - Xiao nRF52840 + PAW3222, USB HID
+  - board: xiao_ble//zmk
+    shield: trackball_central
+    artifact-name: trackball_central
+
+  # Cornix Left (Peripheral) - with LED indicator
   - board: cornix_left
     shield: cornix_indicator
     artifact-name: cornix_left_peripheral
 
-  # Cornix Right (CENTRAL on this branch) - with trackball listener and LED indicator
+  # Cornix Right (Peripheral) - with LED indicator
   - board: cornix_right
     shield: cornix_indicator
-    artifact-name: cornix_right_central
-
-  # Trackball Peripheral (Xiao nRF52840 + PAW3222)
-  # HW model v2: board=xiao_ble, variant=zmk (xiao_ble_zmk_defconfig provides
-  # CONFIG_ZMK_BLE/USB which the stock xiao_ble defconfig does not).
-  - board: xiao_ble//zmk
-    shield: trackball_paw3222
-    artifact-name: trackball_peripheral
+    artifact-name: cornix_right_peripheral
 
   # Settings reset (for troubleshooting)
   # WARNING: Use the correct reset firmware for each device!
-  # - reset_cornix: Cornix keyboards only (nRF52840 E73 module)
-  # - reset_xiao: Xiao nRF52840 BLE only (trackball module)
+  # - reset_cornix_*: Cornix keyboards only (nRF52840 E73 module, app @ 0x1000)
+  # - reset_xiao: Xiao nRF52840 BLE only (trackball module, app @ 0x27000)
   # Flashing the wrong reset firmware can corrupt the bootloader!
   - board: cornix_left
     shield: settings_reset

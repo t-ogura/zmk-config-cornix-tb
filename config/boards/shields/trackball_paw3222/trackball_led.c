@@ -1,6 +1,11 @@
 /*
  * Trackball LED Status Indicator
- * Custom implementation for peripheral devices
+ *
+ * Role-aware: on a split peripheral (trackball_paw3222 shield) "connected"
+ * means linked to the central; on a split central (trackball_central
+ * shield, xiao-as-central branch) it means the active BLE profile is
+ * connected to a host. Everything else (battery colors, blink cadence) is
+ * shared.
  */
 
 #include <zephyr/device.h>
@@ -14,7 +19,18 @@ LOG_MODULE_REGISTER(trackball_led, CONFIG_ZMK_LOG_LEVEL);
 
 #include <zmk/battery.h>
 #include <zmk/events/battery_state_changed.h>
+
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+#include <zmk/ble.h>
+static inline bool trackball_link_is_connected(void) {
+    return zmk_ble_active_profile_is_connected();
+}
+#else
 #include <zmk/split/bluetooth/peripheral.h>
+static inline bool trackball_link_is_connected(void) {
+    return zmk_split_bt_peripheral_is_connected();
+}
+#endif
 
 // LED GPIO definitions for Xiao nRF52840
 #define LED_RED_NODE   DT_ALIAS(led_red)
@@ -85,7 +101,7 @@ static void led_blink_handler(struct k_work *work) {
         return;
     }
 
-    bool connected = zmk_split_bt_peripheral_is_connected();
+    bool connected = trackball_link_is_connected();
 
     if (!connected) {
         // Toggle blink state
@@ -110,7 +126,7 @@ static void led_update_handler(struct k_work *work) {
 
     // Get battery level and connection status
     uint8_t battery_level = zmk_battery_state_of_charge();
-    bool connected = zmk_split_bt_peripheral_is_connected();
+    bool connected = trackball_link_is_connected();
 
     // Detect connection state change - show status when connected
     if (connected && !last_connected) {
@@ -151,7 +167,7 @@ static void led_show_status_temporary(void) {
     }
 
     uint8_t battery_level = zmk_battery_state_of_charge();
-    bool connected = zmk_split_bt_peripheral_is_connected();
+    bool connected = trackball_link_is_connected();
 
     LOG_INF("Showing status: Battery: %d%%, Connected: %d", battery_level, connected);
 
@@ -166,7 +182,7 @@ static void status_check_handler(struct k_work *work) {
         return;
     }
 
-    bool connected = zmk_split_bt_peripheral_is_connected();
+    bool connected = trackball_link_is_connected();
     uint8_t battery_level = zmk_battery_state_of_charge();
 
     // Detect connection state changes

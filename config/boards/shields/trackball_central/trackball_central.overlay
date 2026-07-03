@@ -1,0 +1,102 @@
+/*
+ * Trackball as split CENTRAL (Xiao nRF52840 + PAW3222).
+ *
+ * Experiment branch feature/xiao-as-central. The Xiao that hosts the
+ * trackball sensor becomes the BLE central + USB HID device; both Cornix
+ * halves become peripherals. Motivation:
+ *   - pointer events skip BLE entirely (sensor -> USB, 0 radio hops)
+ *   - the Xiao runs DC-DC + HW stack protection out of the box, unlike
+ *     the E73 Cornix halves, so central duties sit on the sturdier MCU
+ *     (expected to calm the battery-boot freeze family of issues).
+ *
+ * Modeled on the cornix_dongle_adapter shield ("central without keys"):
+ * mock kscan + the keyboard's physical layout, with key events arriving
+ * only from the split peripherals.
+ */
+
+// Cornix physical layout (52 positions) + encoder sensor definitions.
+// Relative include into the west checkout of zmk-keyboard-cornix; this
+// depends on the module's default west path (repo root). The encoders in
+// cornix_sensors.dtsi are status="disabled" stubs -- present so the
+// zmk,keymap-sensors node exists with the same 2-sensor indexing that the
+// peripherals' forwarded sensor events assume; no driver initializes on
+// the Xiao (P1.04/P1.06 are also not used by the SPI trackball wiring).
+#include "../../../../zmk-keyboard-cornix/boards/jzf/cornix/cornix-layouts.dtsi"
+#include "../../../../zmk-keyboard-cornix/boards/jzf/cornix/cornix_sensors.dtsi"
+
+/ {
+    chosen {
+        zmk,kscan = &mock_kscan;
+        zmk,physical-layout = &layout_50;
+        zmk,battery = &vbatt;
+    };
+
+    // No local keys: all key positions arrive from the split peripherals.
+    mock_kscan: mock_kscan {
+        compatible = "zmk,kscan-mock";
+        columns = <0>;
+        rows = <0>;
+        events = <0>;
+    };
+
+    aliases {
+        led-red = &led0;
+        led-green = &led2;
+        led-blue = &led1;
+    };
+
+    // Battery voltage divider (Xiao BLE has VBAT on P0.31)
+    // Values from official ZMK seeeduino_xiao_ble.overlay
+    vbatt: vbatt {
+        compatible = "zmk,battery-voltage-divider";
+        io-channels = <&adc 7>;
+        power-gpios = <&gpio0 14 (GPIO_OPEN_DRAIN | GPIO_ACTIVE_LOW)>;
+        output-ohms = <510000>;
+        full-ohms = <(1000000 + 510000)>;
+    };
+
+    // Local input listener: PAW3222 feeds HID directly (no zmk,input-split
+    // hop). Input processors (auto-mouse layer + scroller child) are bound
+    // in the shared keymap, exactly as on the Cornix-central builds.
+    trackball_listener: trackball_listener {
+        compatible = "zmk,input-listener";
+        device = <&trackball>;
+        status = "okay";
+    };
+};
+
+&pinctrl {
+    spi0_default: spi0_default {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 1, 12)>,   // D7 = P1.12 (SCLK)
+                    <NRF_PSEL(SPIM_MOSI, 1, 13)>,  // D8 = P1.13 (SDIO)
+                    <NRF_PSEL(SPIM_MISO, 1, 13)>;  // D8 = P1.13 (SDIO - same as MOSI)
+        };
+    };
+
+    spi0_sleep: spi0_sleep {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 1, 12)>,
+                    <NRF_PSEL(SPIM_MOSI, 1, 13)>,
+                    <NRF_PSEL(SPIM_MISO, 1, 13)>;
+            low-power-enable;
+        };
+    };
+};
+
+&spi0 {
+    status = "okay";
+    compatible = "nordic,nrf-spim";
+    pinctrl-0 = <&spi0_default>;
+    pinctrl-1 = <&spi0_sleep>;
+    pinctrl-names = "default", "sleep";
+    cs-gpios = <&gpio1 15 GPIO_ACTIVE_LOW>;  // D10 = P1.15 (CS)
+
+    trackball: trackball@0 {
+        status = "okay";
+        compatible = "pixart,paw3222";
+        reg = <0>;
+        spi-max-frequency = <2000000>;
+        irq-gpios = <&gpio1 14 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;  // D9 = P1.14 (MOTION)
+    };
+};
