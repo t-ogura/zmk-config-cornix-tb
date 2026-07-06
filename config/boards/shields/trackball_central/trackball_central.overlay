@@ -39,10 +39,16 @@
         events = <0>;
     };
 
+    // rgbled-widget GPIO mode: aliases onto the Xiao's built-in RGB LED.
+    // Board-correct mapping per xiao_ble_common.dtsi (led0=Red P0.26,
+    // led1=Green P0.30, led2=Blue P0.6). Note: the trackball_paw3222
+    // peripheral shield historically swapped green/blue for its custom LED
+    // code; the widget needs the true colors so battery/connectivity
+    // indications match the other keyboards.
     aliases {
         led-red = &led0;
-        led-green = &led2;
-        led-blue = &led1;
+        led-green = &led1;
+        led-blue = &led2;
     };
 
     // Battery voltage divider (Xiao BLE has VBAT on P0.31)
