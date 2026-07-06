@@ -61,6 +61,14 @@ jobs:
             echo "Applying $(basename "$p")"
             git -C zmk apply "$(realpath "$p")"
           done
+          # Board-module patches. The role-defaults-swappable patch is
+          # required for the central-swap branches: without it the cornix
+          # board defconfig's select chain silently forces cornix_left back
+          # to central regardless of the =n in the application conf.
+          for p in patches/zmk-keyboard-cornix/*.patch; do
+            echo "Applying $(basename "$p")"
+            git -C zmk-keyboard-cornix apply "$(realpath "$p")"
+          done
 
       - name: West Zephyr export
         working-directory: ${{ github.workspace }}/zmk-config
