@@ -32,9 +32,12 @@ manifest:
     - name: zmk-rgbled-widget
       remote: t-ogura
       revision: cornix-zephyr4
+    # dev/v2.2.2-test: v2.2.1 + burst/silent boot-race fix (#22) +
+    # CENTRAL_SIDE=AUX battery mapping. Pin back to a release tag once
+    # v2.2.2 ships.
     - name: prospector-zmk-module
       remote: prospector
-      revision: release/v2.2.1
+      revision: dev/v2.2.2-test
       path: modules/prospector-zmk-module
   self:
     path: config
