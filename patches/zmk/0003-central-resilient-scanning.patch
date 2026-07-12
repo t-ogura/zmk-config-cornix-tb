@@ -1,5 +1,5 @@
 diff --git a/app/src/split/bluetooth/central.c b/app/src/split/bluetooth/central.c
-index b4b61ce7..4636e020 100644
+index b4b61ce7..b73a14f9 100644
 --- a/app/src/split/bluetooth/central.c
 +++ b/app/src/split/bluetooth/central.c
 @@ -30,6 +30,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
@@ -10,23 +10,35 @@ index b4b61ce7..4636e020 100644
  #include <zmk/pointing/input_split.h>
  #include <zmk/hid_indicators_types.h>
  #include <zmk/physical_layouts.h>
-@@ -908,17 +909,71 @@ static int start_scanning(void) {
+@@ -908,17 +909,93 @@ static int start_scanning(void) {
      }
  
      // Start scanning otherwise.
 -    is_scanning = true;
 -    int err = bt_le_scan_start(BT_LE_SCAN_PASSIVE, split_central_device_found);
-+    // Cornix TB local patch:
++    // Cornix TB local patch (v2):
 +    //   1) set is_scanning AFTER bt_le_scan_start succeeds, so a transient
 +    //      failure (e.g. controller busy at boot) does not leave is_scanning
 +    //      stuck true and prevent future scan attempts.
-+    //   2) use PASSIVE_CONTINUOUS (30ms window / 30ms interval = 100% duty)
++    //   2) continuous passive scan (30ms window == interval, 100% duty)
 +    //      instead of PASSIVE (30ms / 60ms = 50% duty). With one peripheral
 +    //      already connected and competing for radio time, 50% duty causes
 +    //      the second peripheral's undirected adv (~100-150ms) to be missed
 +    //      consistently. Continuous scan picks them up reliably; the radio
 +    //      power cost is acceptable for an actively-used keyboard central.
-+    int err = bt_le_scan_start(BT_LE_SCAN_PASSIVE_CONTINUOUS, split_central_device_found);
++    //   3) NO duplicate filtering (BT_LE_SCAN_OPT_NONE instead of
++    //      BT_LE_SCAN_OPT_FILTER_DUPLICATE): the controller's duplicate-adv
++    //      filter could latch a peripheral as "already seen" after a failed
++    //      connect attempt, silently dropping its subsequent advs. Patch v1
++    //      worked around that with a periodic scan stop+start cycle, but
++    //      issuing scan commands from a timer raced ZMK's own scan/initiator
++    //      state machine (freeze at wake+5s on the xiao-as-central build).
++    //      Without the filter the latch cannot happen, so no churn is needed;
++    //      the extra duplicate reports are cheap to discard in
++    //      split_central_device_found.
++    int err = bt_le_scan_start(BT_LE_SCAN_PARAM(BT_LE_SCAN_TYPE_PASSIVE, BT_LE_SCAN_OPT_NONE,
++                                                BT_GAP_SCAN_FAST_WINDOW, BT_GAP_SCAN_FAST_WINDOW),
++                               split_central_device_found);
      if (err < 0) {
          LOG_ERR("Scanning failed to start (err %d)", err);
 +        is_scanning = false;
@@ -39,19 +51,29 @@ index b4b61ce7..4636e020 100644
  }
  
 +/*
-+ * Cornix TB local patch: periodic scan refresh.
++ * Cornix TB local patch (v2): periodic scan RECOVERY (watchdog), not refresh.
 + *
-+ * The BLE controller's duplicate-adv filter can latch a peripheral as
-+ * "already seen" after a failed/abandoned connect attempt, so its subsequent
-+ * adv beacons are silently dropped before reaching this driver. Restarting
-+ * the scan resets the filter. We schedule a periodic kick that:
-+ *   - if any peripheral slot is still unconnected, stop + start scanning
-+ *   - is a no-op once all peripherals are connected
-+ *   - re-arms itself every PERIODIC_SCAN_KICK_SECONDS until cancelled
++ * v1 rationale was resetting the controller's duplicate-adv filter with a
++ * stop+start cycle every 5s while any peripheral was unconnected. That
++ * issued bt_le_scan_stop()/bt_le_scan_start() from the system workqueue
++ * with no synchronization against ZMK's own scan/initiator transitions
++ * (split_central_eir_found stops the scan and hands the LL scanner to the
++ * initiator for up to CONFIG_BT_CREATE_CONN_TIMEOUT seconds). When the
++ * kick collided with that window -- deterministic on the xiao-as-central
++ * build at wake+5s, where the halves wake and start advertising seconds
++ * after the central reboots -- the host wedged on the HCI command and the
++ * system workqueue blocked forever (total input/adv/LED freeze).
 + *
-+ * 5 seconds is short enough that "right keyboard doesn't connect" recovers
-+ * within the user's normal post-boot wait, long enough that we don't churn
-+ * the radio for nothing.
++ * v2 removes the need for the churn at the source: scanning now runs
++ * without duplicate filtering (see start_scanning), so the filter can
++ * never latch. The kick degrades to a pure recovery watchdog:
++ *   - never stops a running scan;
++ *   - only calls start_scanning() when the scan is NOT running, at least
++ *     one peripheral slot is empty, and no connection attempt is in
++ *     flight (a slot conn in a non-connected state = initiator active,
++ *     which owns the LL scanner -- starting a scan then is the exact
++ *     race v1 died on);
++ *   - re-arms itself every PERIODIC_SCAN_KICK_SECONDS.
 + */
 +#define PERIODIC_SCAN_KICK_SECONDS 5
 +
@@ -60,21 +82,21 @@ index b4b61ce7..4636e020 100644
 +
 +static void periodic_scan_kick_work_handler(struct k_work *work) {
 +    bool has_unconnected = false;
++    bool create_in_flight = false;
 +    for (int i = 0; i < CONFIG_ZMK_SPLIT_BLE_CENTRAL_PERIPHERALS; i++) {
 +        if (peripherals[i].conn == NULL) {
 +            has_unconnected = true;
-+            break;
++        } else {
++            struct bt_conn_info info;
++            if (bt_conn_get_info(peripherals[i].conn, &info) == 0 &&
++                info.state != BT_CONN_STATE_CONNECTED) {
++                create_in_flight = true;
++            }
 +        }
 +    }
 +
-+    if (has_unconnected && is_enabled) {
-+        if (is_scanning) {
-+            int err = bt_le_scan_stop();
-+            if (err < 0 && err != -EALREADY) {
-+                LOG_WRN("periodic kick: stop scan failed (%d)", err);
-+            }
-+            is_scanning = false;
-+        }
++    if (has_unconnected && is_enabled && !is_scanning && !create_in_flight) {
++        LOG_INF("scan watchdog: scan not running with open slots, restarting");
 +        start_scanning();
 +    }
 +
@@ -84,7 +106,7 @@ index b4b61ce7..4636e020 100644
  static void split_central_connected(struct bt_conn *conn, uint8_t conn_err) {
      char addr[BT_ADDR_LE_STR_LEN];
      struct bt_conn_info info;
-@@ -1147,6 +1202,9 @@ static int zmk_split_bt_central_init(void) {
+@@ -1147,6 +1224,9 @@ static int zmk_split_bt_central_init(void) {
                         CONFIG_ZMK_BLE_THREAD_PRIORITY, NULL);
      bt_conn_cb_register(&conn_callbacks);
  
@@ -94,7 +116,7 @@ index b4b61ce7..4636e020 100644
  #if IS_ENABLED(CONFIG_SETTINGS)
      settings_register(&ble_central_settings_handler);
      return 0;
-@@ -1161,11 +1219,24 @@ static int zmk_split_bt_central_listener_cb(const zmk_event_t *eh) {
+@@ -1161,11 +1241,24 @@ static int zmk_split_bt_central_listener_cb(const zmk_event_t *eh) {
      if (as_zmk_physical_layout_selection_changed(eh)) {
          k_work_submit(&update_peripherals_selected_layouts_work);
      }

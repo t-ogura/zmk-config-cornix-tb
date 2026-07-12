@@ -18,17 +18,27 @@ Kept in this repo rather than upstreamed — small private use only.
   the race when the central is busy connecting to another peripheral. Greatly
   improves multi-peripheral reconnect reliability on Cornix TB.
 
-- `0003-central-resilient-scanning.patch`
+- `0003-central-resilient-scanning.patch` (v2)
   Split-central hardening: (1) set `is_scanning=true` only after
-  `bt_le_scan_start` succeeds, (2) use `BT_LE_SCAN_PASSIVE_CONTINUOUS`
-  (100% duty) instead of the default 50%-duty scan so a contending
-  peripheral's ~100-150 ms adv window is not missed, (3) re-arm a periodic
-  5 s scan-kick that stop-and-starts the scan whenever any peripheral slot
-  is unconnected (resets the controller's duplicate-adv filter that can
-  latch after a failed CONNECT_REQ), and (4) re-trigger `start_scanning()`
-  on transitions back to `ZMK_ACTIVITY_ACTIVE`. Eliminates the "second
-  peripheral never reconnects" symptom on Cornix TB without requiring a
-  hard reset.
+  `bt_le_scan_start` succeeds, (2) continuous passive scan (30 ms window ==
+  interval, 100% duty) instead of the default 50%-duty scan so a contending
+  peripheral's ~100-150 ms adv window is not missed, (3) scan WITHOUT
+  duplicate filtering so the controller's dup-adv filter can never latch a
+  peripheral as "already seen" after a failed CONNECT_REQ, (4) a 5 s
+  recovery watchdog that restarts scanning ONLY when the scan is not
+  running, a peripheral slot is open, and no connection attempt is in
+  flight, and (5) re-trigger `start_scanning()` on transitions back to
+  `ZMK_ACTIVITY_ACTIVE`. Eliminates the "second peripheral never
+  reconnects" symptom on Cornix TB without requiring a hard reset.
+
+  v2 note: v1's watchdog stop-and-started the scan every 5 s while any
+  slot was unconnected. Those unsynchronized scan commands raced ZMK's
+  own scan/initiator handover (`split_central_eir_found` gives the LL
+  scanner to the initiator for up to `BT_CREATE_CONN_TIMEOUT`), wedging
+  the host and permanently blocking the system workqueue — a reproducible
+  total freeze at wake+5 s on the xiao-as-central build. Removing
+  duplicate filtering makes the churn unnecessary, and the watchdog now
+  never touches a live scan or a pending connect.
 
 ## Local apply
 
