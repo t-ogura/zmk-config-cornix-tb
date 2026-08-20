@@ -1,5 +1,5 @@
 diff --git a/app/src/split/bluetooth/central.c b/app/src/split/bluetooth/central.c
-index b4b61ce7..b73a14f9 100644
+index b4b61ce7..1e744741 100644
 --- a/app/src/split/bluetooth/central.c
 +++ b/app/src/split/bluetooth/central.c
 @@ -30,6 +30,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
@@ -10,22 +10,39 @@ index b4b61ce7..b73a14f9 100644
  #include <zmk/pointing/input_split.h>
  #include <zmk/hid_indicators_types.h>
  #include <zmk/physical_layouts.h>
-@@ -908,17 +909,93 @@ static int start_scanning(void) {
+@@ -882,6 +883,13 @@ static void split_central_device_found(const bt_addr_le_t *addr, int8_t rssi, ui
+     }
+ }
+ 
++// Cornix TB local patch (v3): scan duty backoff state. `scan_slow` selects
++// the 10%-duty parameters in start_scanning; the watchdog flips it after
++// SCAN_BACKOFF_TICKS of fruitless fast scanning and the activity listener
++// flips it back on wake so a waking half reconnects fast.
++#define SCAN_SLOW_INTERVAL 0x01E0 // 300ms units of 0.625ms -> 480 = 0x1E0
++static bool scan_slow = false;
++
+ static int start_scanning(void) {
+     if (!is_enabled) {
+         LOG_DBG("Not scanning, we're disabled");
+@@ -908,17 +916,138 @@ static int start_scanning(void) {
      }
  
      // Start scanning otherwise.
 -    is_scanning = true;
 -    int err = bt_le_scan_start(BT_LE_SCAN_PASSIVE, split_central_device_found);
-+    // Cornix TB local patch (v2):
++    // Cornix TB local patch (v3):
 +    //   1) set is_scanning AFTER bt_le_scan_start succeeds, so a transient
 +    //      failure (e.g. controller busy at boot) does not leave is_scanning
 +    //      stuck true and prevent future scan attempts.
-+    //   2) continuous passive scan (30ms window == interval, 100% duty)
-+    //      instead of PASSIVE (30ms / 60ms = 50% duty). With one peripheral
-+    //      already connected and competing for radio time, 50% duty causes
-+    //      the second peripheral's undirected adv (~100-150ms) to be missed
-+    //      consistently. Continuous scan picks them up reliably; the radio
-+    //      power cost is acceptable for an actively-used keyboard central.
++    //   2) two-phase duty cycle (see scan_slow / watchdog): FAST phase is a
++    //      continuous passive scan (30ms window == interval, 100% duty) so a
++    //      waking peripheral's undirected adv (~100-150ms) is caught
++    //      immediately; after SCAN_BACKOFF_TICKS without full connection the
++    //      watchdog drops to a 10%-duty SLOW scan (30ms window / 300ms
++    //      interval). 100% RX duty costs ~5-6mA -- fine for a brief
++    //      reconnect window, ruinous when a sleeping half leaves the slot
++    //      open for hours while the user keeps mousing on the central
++    //      (trackball-as-central battery drain).
 +    //   3) NO duplicate filtering (BT_LE_SCAN_OPT_NONE instead of
 +    //      BT_LE_SCAN_OPT_FILTER_DUPLICATE): the controller's duplicate-adv
 +    //      filter could latch a peripheral as "already seen" after a failed
@@ -33,18 +50,21 @@ index b4b61ce7..b73a14f9 100644
 +    //      worked around that with a periodic scan stop+start cycle, but
 +    //      issuing scan commands from a timer raced ZMK's own scan/initiator
 +    //      state machine (freeze at wake+5s on the xiao-as-central build).
-+    //      Without the filter the latch cannot happen, so no churn is needed;
-+    //      the extra duplicate reports are cheap to discard in
-+    //      split_central_device_found.
-+    int err = bt_le_scan_start(BT_LE_SCAN_PARAM(BT_LE_SCAN_TYPE_PASSIVE, BT_LE_SCAN_OPT_NONE,
-+                                                BT_GAP_SCAN_FAST_WINDOW, BT_GAP_SCAN_FAST_WINDOW),
-+                               split_central_device_found);
++    //      Without the filter the latch cannot happen; the extra duplicate
++    //      reports are cheap to discard in split_central_device_found.
++    int err = bt_le_scan_start(
++        scan_slow ? BT_LE_SCAN_PARAM(BT_LE_SCAN_TYPE_PASSIVE, BT_LE_SCAN_OPT_NONE,
++                                     SCAN_SLOW_INTERVAL, BT_GAP_SCAN_FAST_WINDOW)
++                  : BT_LE_SCAN_PARAM(BT_LE_SCAN_TYPE_PASSIVE, BT_LE_SCAN_OPT_NONE,
++                                     BT_GAP_SCAN_FAST_WINDOW, BT_GAP_SCAN_FAST_WINDOW),
++        split_central_device_found);
      if (err < 0) {
          LOG_ERR("Scanning failed to start (err %d)", err);
 +        is_scanning = false;
          return err;
      }
 +    is_scanning = true;
++    LOG_INF("Scanning started (%s duty)", scan_slow ? "slow 10%" : "fast 100%");
  
      LOG_DBG("Scanning successfully started");
      return 0;
@@ -80,24 +100,63 @@ index b4b61ce7..b73a14f9 100644
 +static void periodic_scan_kick_work_handler(struct k_work *work);
 +static K_WORK_DELAYABLE_DEFINE(periodic_scan_kick_work, periodic_scan_kick_work_handler);
 +
-+static void periodic_scan_kick_work_handler(struct k_work *work) {
-+    bool has_unconnected = false;
-+    bool create_in_flight = false;
++// Ticks of fruitless FAST scanning before dropping to the 10%-duty SLOW
++// scan (12 ticks x 5s = 60s). Long enough that every normal reconnect
++// happens at full duty, short enough that a half left asleep for hours
++// does not pin the radio RX on continuously.
++#define SCAN_BACKOFF_TICKS 12
++static uint8_t scan_fast_ticks = 0;
++
++static void survey_peripheral_slots(bool *has_unconnected, bool *create_in_flight) {
++    *has_unconnected = false;
++    *create_in_flight = false;
 +    for (int i = 0; i < CONFIG_ZMK_SPLIT_BLE_CENTRAL_PERIPHERALS; i++) {
 +        if (peripherals[i].conn == NULL) {
-+            has_unconnected = true;
++            *has_unconnected = true;
 +        } else {
 +            struct bt_conn_info info;
 +            if (bt_conn_get_info(peripherals[i].conn, &info) == 0 &&
 +                info.state != BT_CONN_STATE_CONNECTED) {
-+                create_in_flight = true;
++                *create_in_flight = true;
 +            }
 +        }
 +    }
++}
 +
-+    if (has_unconnected && is_enabled && !is_scanning && !create_in_flight) {
-+        LOG_INF("scan watchdog: scan not running with open slots, restarting");
-+        start_scanning();
++// Guarded one-shot scan restart, used only for duty transitions. Unlike the
++// v1 5s churn this runs at most once per transition, never while a connect
++// is in flight, and tolerates losing the race to split_central_eir_found
++// (stop returns -EALREADY, the follow-up start fails cleanly, and the next
++// watchdog tick recovers).
++static void restart_scan_for_duty_change(void) {
++    if (is_scanning) {
++        is_scanning = false;
++        int err = bt_le_scan_stop();
++        if (err < 0 && err != -EALREADY) {
++            LOG_WRN("duty change: stop scan failed (%d)", err);
++        }
++    }
++    start_scanning();
++}
++
++static void periodic_scan_kick_work_handler(struct k_work *work) {
++    bool has_unconnected, create_in_flight;
++    survey_peripheral_slots(&has_unconnected, &create_in_flight);
++
++    if (!has_unconnected) {
++        // Fully connected: reset backoff so the next disconnect starts fast.
++        scan_fast_ticks = 0;
++        scan_slow = false;
++    } else if (is_enabled && !create_in_flight) {
++        if (!is_scanning) {
++            LOG_INF("scan watchdog: scan not running with open slots, restarting");
++            start_scanning();
++        } else if (!scan_slow && ++scan_fast_ticks >= SCAN_BACKOFF_TICKS) {
++            LOG_INF("scan watchdog: backing off to slow scan after %ds",
++                    SCAN_BACKOFF_TICKS * PERIODIC_SCAN_KICK_SECONDS);
++            scan_slow = true;
++            restart_scan_for_duty_change();
++        }
 +    }
 +
 +    k_work_schedule(&periodic_scan_kick_work, K_SECONDS(PERIODIC_SCAN_KICK_SECONDS));
@@ -106,7 +165,7 @@ index b4b61ce7..b73a14f9 100644
  static void split_central_connected(struct bt_conn *conn, uint8_t conn_err) {
      char addr[BT_ADDR_LE_STR_LEN];
      struct bt_conn_info info;
-@@ -1147,6 +1224,9 @@ static int zmk_split_bt_central_init(void) {
+@@ -1147,6 +1276,9 @@ static int zmk_split_bt_central_init(void) {
                         CONFIG_ZMK_BLE_THREAD_PRIORITY, NULL);
      bt_conn_cb_register(&conn_callbacks);
  
@@ -116,21 +175,33 @@ index b4b61ce7..b73a14f9 100644
  #if IS_ENABLED(CONFIG_SETTINGS)
      settings_register(&ble_central_settings_handler);
      return 0;
-@@ -1161,11 +1241,24 @@ static int zmk_split_bt_central_listener_cb(const zmk_event_t *eh) {
+@@ -1161,11 +1293,36 @@ static int zmk_split_bt_central_listener_cb(const zmk_event_t *eh) {
      if (as_zmk_physical_layout_selection_changed(eh)) {
          k_work_submit(&update_peripherals_selected_layouts_work);
      }
 +    /*
-+     * Cornix TB local patch: on transition back to the ACTIVE activity state
-+     * (key press / movement after idle/sleep), kick start_scanning() again.
-+     * Previously, if start_scanning failed at boot or scanning got stopped
-+     * during sleep, there was no path back to scanning without a hard reset.
-+     * Calling start_scanning here is idempotent: it returns 0 immediately
-+     * if already scanning or all peripherals are connected.
++     * Cornix TB local patch (v3): on transition back to the ACTIVE activity
++     * state (key press / movement after idle/sleep), kick start_scanning()
++     * again -- if scanning stalled there is otherwise no path back without a
++     * hard reset. Additionally, drop out of the slow-scan backoff: renewed
++     * user activity is the moment a sleeping half is most likely to wake and
++     * advertise, so we want the fast 100%-duty scan for a quick reconnect.
++     * The duty-change restart honors the same in-flight-connect guard as the
++     * watchdog.
 +     */
 +    struct zmk_activity_state_changed *as_ev = as_zmk_activity_state_changed(eh);
 +    if (as_ev && as_ev->state == ZMK_ACTIVITY_ACTIVE) {
-+        start_scanning();
++        scan_fast_ticks = 0;
++        if (scan_slow) {
++            scan_slow = false;
++            bool has_unconnected, create_in_flight;
++            survey_peripheral_slots(&has_unconnected, &create_in_flight);
++            if (has_unconnected && !create_in_flight) {
++                restart_scan_for_duty_change();
++            }
++        } else {
++            start_scanning();
++        }
 +    }
      return ZMK_EV_EVENT_BUBBLE;
  }
